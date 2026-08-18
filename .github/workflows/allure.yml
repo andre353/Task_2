@@ -3,8 +3,6 @@ name: Task_2 API Tests and Allure Report
 on:
   pull_request:
     branches: [ main ]
-  push:
-    branches: [ develop2 ]  
 
 permissions:
   contents: write
@@ -59,3 +57,10 @@ jobs:
         publish_branch: gh-pages
         publish_dir: allure-history
 
+    - name: Comment PR with Allure Report link
+      uses: thollander/actions-comment-pull-request@v2
+      if: always()
+      with:
+        message: |
+          **Allure Test Report**
+          [Посмотреть отчет можно здесь](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
