@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  pages: write
+  id-token: write
 
 jobs:
   run-tests:
@@ -57,10 +59,3 @@ jobs:
         publish_branch: gh-pages
         publish_dir: allure-history
 
-    - name: Comment PR with Allure Report link
-      uses: thollander/actions-comment-pull-request@v2
-      if: always()
-      with:
-        message: |
-          **Allure Test Report is ready.**
-          [Посмотреть отчет можно здесь](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_number }}/)
