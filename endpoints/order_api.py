@@ -16,4 +16,8 @@ class OrderApi:
         response = requests.post(f"{self.base_url}{ORDERS}", json=payload, headers=headers)
         return response
 
+    @allure.step("Получение заказов пользователя (GET /api/orders)")
+    def get_user_orders(self, headers=None):
+        return requests.get(f"{self.base_url}{ORDERS}", headers=headers)    
+
     
