@@ -11,59 +11,44 @@ class TestCreateUser:
     # ==========================================
 
     @allure.title("Создание уникального пользователя: проверка статус-кода")
-    def test_create_unique_user_status_code(self, user_api):
-        payload = generate_user_payload()
-        response = user_api.register_user(payload)
-        token = response.json().get("accessToken")
-        try:
-            assert response.status_code == 200
-        finally:
-            if token:
-                user_api.delete_user(headers={"Authorization": token})
+    def test_create_unique_user_status_code(self, user_api, auth_user_response):
+        assert auth_user_response.status_code == 200
 
     @allure.title("Создание уникального пользователя: проверка наличия токена")
-    def test_create_unique_user_has_token(self, user_api):
-        payload = generate_user_payload()
-        response = user_api.register_user(payload)
-        token = response.json().get("accessToken")
-        try:
-            assert "accessToken" in response.json()
-        finally:
-            if token:
-                user_api.delete_user(headers={"Authorization": token})
+    def test_create_unique_user_has_token(self, user_api, auth_user_response):
+        assert "accessToken" in auth_user_response.json()
 
     # ==========================================
     # СЦЕНАРИЙ: создать пользователя, который уже зарегистрирован
     # ==========================================            
 
     @allure.title("Создание дубликата: проверка статус-кода 403")
-    def test_create_duplicate_user_status_code(self, user_api, auth_user):
-        duplicate_payload = auth_user["user_data"]
-        response = user_api.register_user(duplicate_payload)
-        assert response.status_code == 403
+    def test_create_duplicate_user_status_code(self, duplicate_user_response):
+        assert duplicate_user_response.status_code == 403
 
     @allure.title("Создание дубликата: проверка сообщения об ошибке")
     @pytest.mark.parametrize("json_key, expected_value", [
         ("success", False),
         ("message", "User already exists")
     ])
-    def test_create_duplicate_user_body_fields(self, user_api, auth_user, json_key, expected_value):
-        duplicate_payload = auth_user["user_data"]
-        response = user_api.register_user(duplicate_payload)
-        assert response.json().get(json_key) == expected_value
+    def test_create_duplicate_user_body_fields(self, duplicate_user_response, json_key, expected_value):
+        assert duplicate_user_response.json().get(json_key) == expected_value
 
     # ==========================================
     # СЦЕНАРИЙ: создать пользователя и не заполнить одно из обязательных полей
     # ==========================================     
 
-    @allure.title("Создание пользователя без обязательного поля")
-    @pytest.mark.parametrize("missing_field", ["email", "password", "name"])
-    def test_create_user_missing_field_error(self, user_api, missing_field):
-        payload = generate_user_payload()
-        payload.pop(missing_field)
-        
-        response = user_api.register_user(payload)
-        response_json = response.json()
-        
-        # Проверяем структуру одной строкой, так как это неделимая логика ошибки
-        assert response.status_code == 403 and response_json.get("success") is False and response_json.get("message") == "Email, password and name are required fields"
+    @allure.title("Создание пользователя без обязательного поля: проверка статус-кода 403")
+    # Передаем параметры через indirect=True прямо в фикстуру запроса
+    @pytest.mark.parametrize("missing_field_user_response", ["email", "password", "name"], indirect=True)
+    def test_create_user_missing_field_status_code(self, missing_field_user_response):
+        assert missing_field_user_response.status_code == 403
+
+    @allure.title("Создание пользователя без обязательного поля: проверка тела ответа")
+    @pytest.mark.parametrize("missing_field_user_response", ["email", "password", "name"], indirect=True)
+    @pytest.mark.parametrize("json_key, expected_value", [
+        ("success", False),
+        ("message", "Email, password and name are required fields")
+    ])
+    def test_create_user_missing_field_body_fields(self, missing_field_user_response, json_key, expected_value):
+        assert missing_field_user_response.json().get(json_key) == expected_value
