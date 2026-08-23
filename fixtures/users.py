@@ -10,81 +10,54 @@ def user_api():
     return UserApi(BASE_URL)
 
 @pytest.fixture(scope="function")
+def cleanup_user(user_api):
+    """
+    Универсальный инструмент очистки базы данных.
+    Тест просто передает сюда объект response, а фикстура сама
+    безопасно вытащит токен и удалит пользователя.
+    """
+    data = {"response": None}
+    yield data
+    
+    response = data.get("response")
+    if response:
+        try:
+            token = response.json().get("accessToken")
+            if token:
+                user_api.delete_user(headers={"Authorization": token})
+        except Exception:
+            pass
+
+@pytest.fixture(scope="function")
 def auth_user(user_api):
-    """
-    Регистрирует пользователя перед тестом.
-    Возвращает кортеж (response, payload).
-    После теста гарантированно удаляет пользователя.
-    """
     payload = generate_user_payload()
-    response = user_api.register_user(payload)    
-    # Передаем в тест и ответ сервера, и те данные, что отправляли
-    yield response, payload    
-    # Очистка данных (Teardown)
+    response = user_api.register_user(payload)
+    
+    token = None
     try:
         token = response.json().get("accessToken")
-        if token:
-            user_api.delete_user(headers={"Authorization": token})
     except Exception:
-        pass # Защита на случай, если response.json() упал с ошибкой
+        pass
 
-@pytest.fixture
-def auth_user_response(auth_user):
-    """Возвращает объект ответа Response для проверки результатов регистрации."""
-    auth_response, _ = auth_user
-    return auth_response
+    # Передаем словарь со всеми нужными данными в тесты
+    user_info = {
+        "response": response,
+        "user_data": payload,
+        "token": token
+    }
+    
+    yield user_info
+    
+    if token:
+        try:
+            user_api.delete_user(headers={"Authorization": token})
+        except Exception:
+            pass
 
 @pytest.fixture
 def auth_token(auth_user):
-    """Возвращает СТРОКУ токена для авторизации в других ручках."""
-    auth_response, _ = auth_user
-    return auth_response.json().get("accessToken")
-
-@pytest.fixture
-def auth_user_payload(auth_user):
-    """Извлекает чистый словарь с данными (payload) зарегистрированного пользователя."""
-    _, payload = auth_user
-    return payload
-
-@pytest.fixture
-def successful_login_response(user_api, auth_user_payload):
-    """Выполняет запрос на авторизацию существующего пользователя с верными credentials."""
-    login_data = {
-        "email": auth_user_payload["email"],
-        "password": auth_user_payload["password"]
-    }
-    return user_api.login_user(login_data)
-
-@pytest.fixture
-def invalid_credentials_login_response(user_api, auth_user_payload):
-    """Выполняет запрос на авторизацию с валидным email, но неверным паролем."""
-    login_data = {
-        "email": auth_user_payload["email"],
-        "password": "wrong_password_123"
-    }
-    return user_api.login_user(login_data)
-
-@pytest.fixture
-def update_user_authorized_response(user_api, auth_token, request):
     """
-    Выполняет запрос на изменение данных авторизованного пользователя.
-    Возвращает кортеж: (response, field_to_update, new_value)
+    Возвращает чистую строку токена.
+    Используется в тестах, где сигнатура запрашивает напрямую auth_token.
     """
-    field_to_update, new_value = request.param
-    headers = {"Authorization": auth_token}
-    payload = {field_to_update: new_value}
-    
-    response = user_api.update_user_data(payload=payload, headers=headers)
-    
-    yield response, field_to_update, new_value
-
-@pytest.fixture
-def update_user_unauthorized_response(user_api, request):
-    """
-    Выполняет запрос на изменение данных неавторизованного пользователя.
-    Динамически принимает кортеж (field_to_update, new_value) через request.param.
-    """
-    field_to_update, new_value = request.param
-    payload = {field_to_update: new_value}
-    return user_api.update_user_data(payload=payload, headers=None)
-
+    return auth_user["token"]
